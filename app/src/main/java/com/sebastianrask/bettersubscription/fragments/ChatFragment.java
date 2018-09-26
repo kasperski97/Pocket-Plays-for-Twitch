@@ -90,7 +90,7 @@ public class ChatFragment extends Fragment implements EmoteKeyboardDelegate, Cha
 			0x1F640, 0x1F641, 0x1F642, 0x1F643, 0x1F644, 0x1F645, 0x1F646, 0x1F647, 0x1F648, 0x1F649, 0x1F64A, 0x1F64B, 0x1F64C, 0x1F64D, 0x1F64E, 0x1F64F
 	};
 
-	private static ArrayList<Emote> supportedTextEmotes, bttvEmotes, bttvChannelEmotes, twitchEmotes, subscriberEmotes;
+	private static ArrayList<Emote> supportedTextEmotes, bttvEmotes, bttvChannelEmotes, ffzEmotes, ffzChannelEmotes, twitchEmotes, subscriberEmotes;
 	private static ArrayList<Emote> recentEmotes, emotesToHide;
 
 	private final String LOG_TAG = getClass().getSimpleName();
@@ -115,7 +115,7 @@ public class ChatFragment extends Fragment implements EmoteKeyboardDelegate, Cha
 	private FrameLayout mChatStatusBar;
 
 	//Emote Keyboard
-	private EmoteGridFragment textEmotesFragment, recentEmotesFragment, twitchEmotesFragment, bttvEmotesFragment, subscriberEmotesFragment;
+	private EmoteGridFragment textEmotesFragment, recentEmotesFragment, twitchEmotesFragment, bttvEmotesFragment, ffzEmotesFragment, subscriberEmotesFragment;
 	private ImageView mEmoteKeyboardButton, mEmoteChatBackspace;
 	private ViewGroup emoteKeyboardContainer;
 	private boolean isEmoteKeyboardOpen = false;
@@ -274,6 +274,17 @@ public class ChatFragment extends Fragment implements EmoteKeyboardDelegate, Cha
 				}
 			}
 
+			@Override
+			public void onFfzEmoteIdFetched(List<Emote> ffzChannel, List<Emote> ffzGlobal) {
+				try {
+					if (isFragmentActive()) {
+						ffzEmoteInfoLoaded(ffzChannel, ffzGlobal);
+					}
+				} catch (IllegalAccessError e) {
+					e.printStackTrace();
+				}
+			}
+
 			private void roomStateIconChange(boolean isOn, ImageView icon) {
 				if (isFragmentActive()) {
 					if(!isOn) {
@@ -412,6 +423,8 @@ public class ChatFragment extends Fragment implements EmoteKeyboardDelegate, Cha
 					emotesToRemove.add(emote);
 				} else if (bttvChannelEmotes != null && emote.isBetterTTVChannelEmote() && !bttvChannelEmotes.contains(emote)) {
 					emotesToHide.add(emote);
+				} else if (ffzChannelEmotes != null && emote.isFfzChannelEmote() && !ffzChannelEmotes.contains(emote)) {
+					emotesToHide.add(emote);
 				}
 			}
 
@@ -489,6 +502,23 @@ public class ChatFragment extends Fragment implements EmoteKeyboardDelegate, Cha
 		checkRecentEmotes();
 		if (settings.isLoggedIn() && bttvEmotesFragment != null) {
 			bttvEmotesFragment.addBttvEmotes();
+		}
+	}
+
+	/**
+	 * Notifies the ChatFragment that the ffzEmotes have been loaded from the API.
+	 * Emotes are made and added to the EmoteKeyboard;
+	 */
+	protected void ffzEmoteInfoLoaded(List<Emote> ffzChannel, List<Emote> ffzGlobal) {
+		Log.d(LOG_TAG, "Ffz Emotes loaded: " + ffzGlobal.size());
+		ffzChannelEmotes = new ArrayList<>(ffzChannel);
+		ffzEmotes = new ArrayList<>(ffzGlobal);
+		ffzEmotes.addAll(ffzChannel);
+		Collections.sort(ffzEmotes);
+
+		checkRecentEmotes();
+		if (settings.isLoggedIn() && ffzEmotesFragment != null) {
+			ffzEmotesFragment.addFfzEmotes();
 		}
 	}
 
@@ -826,6 +856,7 @@ public class ChatFragment extends Fragment implements EmoteKeyboardDelegate, Cha
 					}
 				},
 				bttvEmotes,
+				ffzEmotes,
 				twitchEmotes,
 				subscriberEmotes,
 				chatManager,
@@ -916,7 +947,8 @@ public class ChatFragment extends Fragment implements EmoteKeyboardDelegate, Cha
 				TWITCH_POSITION = 1,
 				SUBSCRIBE_POSITION = 2,
 				BTTV_POSITION = 3,
-				EMOJI_POSITION = 4;
+				FFZ_POSITION = 4,
+				EMOJI_POSITION = 5;
 
 		public EmotesPagerAdapter(FragmentManager fm) {
 			super(fm);
@@ -927,6 +959,7 @@ public class ChatFragment extends Fragment implements EmoteKeyboardDelegate, Cha
 			twitchEmotesFragment = EmoteGridFragment.newInstance(EmoteFragmentType.TWITCH, delegate);
 			subscriberEmotesFragment = EmoteGridFragment.newInstance(EmoteFragmentType.SUBSCRIBER, delegate);
 			bttvEmotesFragment = EmoteGridFragment.newInstance(EmoteFragmentType.BTTV, delegate);
+			ffzEmotesFragment = EmoteGridFragment.newInstance(EmoteFragmentType.FFZ, delegate);
 		}
 
 		@Override
@@ -940,6 +973,7 @@ public class ChatFragment extends Fragment implements EmoteKeyboardDelegate, Cha
 				case TWITCH_POSITION: return twitchEmotesFragment;
 				case SUBSCRIBE_POSITION: return subscriberEmotesFragment;
 				case BTTV_POSITION: return bttvEmotesFragment;
+				case FFZ_POSITION: return ffzEmotesFragment;
 				case EMOJI_POSITION: return textEmotesFragment;
 				default: return EmoteGridFragment.newInstance();
 			}
@@ -958,6 +992,7 @@ public class ChatFragment extends Fragment implements EmoteKeyboardDelegate, Cha
 	protected enum EmoteFragmentType {
 		UNICODE,
 		BTTV,
+		FFZ,
 		TWITCH,
 		SUBSCRIBER,
 		ALL
@@ -1024,6 +1059,9 @@ public class ChatFragment extends Fragment implements EmoteKeyboardDelegate, Cha
 					case BTTV:
 						addBttvEmotes();
 						break;
+					case FFZ:
+						addFfzEmotes();
+						break;
 					case SUBSCRIBER:
 						addSubscriberEmotes();
 						break;
@@ -1049,6 +1087,12 @@ public class ChatFragment extends Fragment implements EmoteKeyboardDelegate, Cha
 		private void addBttvEmotes() {
 			if (bttvEmotes != null && mAdapter != null && mAdapter.getItemCount() == 0) {
 				mAdapter.addEmotes(bttvEmotes);
+			}
+		}
+
+		private void addFfzEmotes() {
+			if (ffzEmotes != null && mAdapter != null && mAdapter.getItemCount() == 0) {
+				mAdapter.addEmotes(ffzEmotes);
 			}
 		}
 

@@ -30,6 +30,7 @@ import java.util.regex.Pattern;
 public class ChatEmoteManager {
     private static LruCache<String, Bitmap> cachedEmotes = new LruCache<>(4 * 1024 * 1024);
     private static Map<String, String> bttvEmotesToId;
+    private static Map<String, String> ffzEmotesToId;
 
     private static final int 	EMOTE_SMALL_SIZE 	= 20,
                                 EMOTE_MEDIUM_SIZE 	= 30,
@@ -38,7 +39,11 @@ public class ChatEmoteManager {
     private final List<Emote> bttvGlobal = new ArrayList<>();
     private final List<Emote> bttvChannel = new ArrayList<>();
 
+    private final List<Emote> ffzGlobal = new ArrayList<>();
+    private final List<Emote> ffzChannel = new ArrayList<>();
+
     private Pattern bttvEmotesPattern = Pattern.compile("");
+    private Pattern ffzEmotesPattern = Pattern.compile("");
     private Pattern emotePattern = Pattern.compile("(\\d+):((?:\\d+-\\d+,?)+)");
 
     private Settings settings;
@@ -80,7 +85,7 @@ public class ChatEmoteManager {
                 String emoteId = emoteObject.getString(EMOTE_ID);
                 result.put(emoteKeyword, emoteId);
 
-                Emote emote = new Emote(emoteId, emoteKeyword, true);
+                Emote emote = new Emote(emoteId, emoteKeyword, true, false);
                 bttvGlobal.add(emote);
 
                 if (emotesPattern.equals("")) {
@@ -100,7 +105,7 @@ public class ChatEmoteManager {
                 String emoteId = emoteObject.getString(EMOTE_ID);
                 result.put(emoteKeyword, emoteId);
 
-                Emote emote = new Emote(emoteId, emoteKeyword, true);
+                Emote emote = new Emote(emoteId, emoteKeyword, true, false);
                 emote.setBetterTTVChannelEmote(true);
                 bttvChannel.add(emote);
 
@@ -118,6 +123,105 @@ public class ChatEmoteManager {
 
         bttvEmotesPattern = Pattern.compile("\\b(" + emotesPattern + ")\\b");
         bttvEmotesToId = result;
+
+        try {
+            callback.onEmoteFetched();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Connects to the FrankerFaceZ API.
+     * Fetches and maps the emote keywords and id's
+     * This must not be called on main UI thread
+     */
+    protected void loadFfzEmotes(EmoteFetchCallback callback) {
+        Map<String, String> result = new HashMap<>();
+        String emotesPattern = "";
+
+        final String BASE_GLOBAL_URL = "https://api.frankerfacez.com/v1/set/global";
+        final String BASE_CHANNEL_URL = "https://api.frankerfacez.com/v1/room/" + channelName;
+        final String SET_ID_ARRAY = "default_sets";
+        final String ROOM_OBJECT = "room";
+        final String CHANNEL_SET_ID = "set";
+        final String SET_ARRAY = "sets";
+        final String EMOTE_ARRAY = "emoticons";
+        final String EMOTE_ID = "id";
+        final String EMOTE_WORD = "name";
+        final String URL_OBJECT = "urls";
+
+        try {
+            JSONObject topObject = new JSONObject(Service.urlToJSONString(BASE_GLOBAL_URL));
+            JSONArray globalSetsId = topObject.getJSONArray(SET_ID_ARRAY);
+            JSONObject globalSets = topObject.getJSONObject(SET_ARRAY);
+
+            for (int i = 0; i < globalSetsId.length(); i++) {
+                JSONArray arrayWithSetId = globalSetsId;
+
+                int globalSetId = arrayWithSetId.getInt(i);
+                JSONObject globalSet = globalSets.getJSONObject(Integer.toString(globalSetId));
+                JSONArray globalEmotes = globalSet.getJSONArray(EMOTE_ARRAY);
+                for (int j = 0; j < globalEmotes.length(); j++) {
+                    JSONArray arrayWithEmote = globalEmotes;
+
+                    JSONObject emoteObject = arrayWithEmote.getJSONObject(j);
+                    String emoteKeyword = emoteObject.getString(EMOTE_WORD);
+                    String emoteId = emoteObject.getString(EMOTE_ID);
+                    result.put(emoteKeyword, emoteId);
+
+                    Emote emote = new Emote(emoteId, emoteKeyword, false, true);
+                    JSONObject emoteUrls = emoteObject.getJSONObject(URL_OBJECT);
+                    int emoteMaxSize = emoteUrls.length();
+                    if(emoteMaxSize != 3) {
+                        emote.setMaxSize(emoteMaxSize);
+                    }
+                    ffzGlobal.add(emote);
+
+                    if (emotesPattern.equals("")) {
+                        emotesPattern = Pattern.quote(emoteKeyword);
+                    } else {
+                        emotesPattern += "|" + Pattern.quote(emoteKeyword);
+                    }
+                }
+            }
+
+            JSONObject topChannelEmotes = new JSONObject(Service.urlToJSONString(BASE_CHANNEL_URL));
+            JSONObject channelRoom = topChannelEmotes.getJSONObject(ROOM_OBJECT);
+            int channelSetId = channelRoom.getInt(CHANNEL_SET_ID);
+            JSONObject channelSets = topChannelEmotes.getJSONObject(SET_ARRAY);
+            JSONObject channelSet = channelSets.getJSONObject(Integer.toString(channelSetId));
+            JSONArray channelEmotes = channelSet.getJSONArray(EMOTE_ARRAY);
+            for (int i = 0; i < channelEmotes.length(); i++) {
+                JSONArray arrayWithEmote = channelEmotes;
+
+                JSONObject emoteObject = arrayWithEmote.getJSONObject(i);
+                String emoteKeyword = emoteObject.getString(EMOTE_WORD);
+                String emoteId = emoteObject.getString(EMOTE_ID);
+                result.put(emoteKeyword, emoteId);
+
+                Emote emote = new Emote(emoteId, emoteKeyword, false, true);
+                JSONObject emoteUrls = emoteObject.getJSONObject(URL_OBJECT);
+                int emoteMaxSize = emoteUrls.length();
+                if(emoteMaxSize != 3) {
+                    emote.setMaxSize(emoteMaxSize);
+                }
+                emote.setFfzChannelEmote(true);
+                ffzChannel.add(emote);
+
+                if (emotesPattern.equals("")) {
+                    emotesPattern = Pattern.quote(emoteKeyword);
+                } else {
+                    emotesPattern += "|" + Pattern.quote(emoteKeyword);
+                }
+            }
+
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+
+        ffzEmotesPattern = Pattern.compile("\\b(" + emotesPattern + ")\\b");
+        ffzEmotesToId = result;
 
         try {
             callback.onEmoteFetched();
@@ -170,7 +274,31 @@ public class ChatEmoteManager {
             String emoteId = bttvEmotesToId.get(emoteKeyword);
 
             String[] positions = new String[] {bttvEmoteMatcher.start() + "-" + (bttvEmoteMatcher.end() - 1)};
-            Bitmap emote = getEmoteFromId(emoteId, true);
+            Bitmap emote = getEmoteFromId(emoteId, true, false);
+            if (emote != null) {
+                final ChatEmote chatEmote = new ChatEmote(positions, emote);
+                emotes.add(chatEmote);
+            }
+        }
+
+        return emotes;
+    }
+
+    /**
+     * Finds and creates FrankerFaceZ emotes in a message and returns them.
+     * @param message The message to find emotes in
+     * @return The List of emotes in the message
+     */
+    protected List<ChatEmote> findFfzEmotes(String message) {
+        List<ChatEmote> emotes = new ArrayList<>();
+        Matcher ffzEmoteMatcher = ffzEmotesPattern.matcher(message);
+
+        while (ffzEmoteMatcher.find()) {
+            String emoteKeyword = ffzEmoteMatcher.group();
+            String emoteId = ffzEmotesToId.get(emoteKeyword);
+
+            String[] positions = new String[] {ffzEmoteMatcher.start() + "-" + (ffzEmoteMatcher.end() - 1)};
+            Bitmap emote = getEmoteFromId(emoteId, false, true);
             if (emote != null) {
                 final ChatEmote chatEmote = new ChatEmote(positions, emote);
                 emotes.add(chatEmote);
@@ -192,7 +320,7 @@ public class ChatEmoteManager {
         while(emoteMatcher.find()) {
             String emoteId = emoteMatcher.group(1);
             String[] positions = emoteMatcher.group(2).split(",");
-            emotes.add(new ChatEmote(positions, getEmoteFromId(emoteId, false)));
+            emotes.add(new ChatEmote(positions, getEmoteFromId(emoteId, false, false)));
         }
 
         return emotes;
@@ -204,7 +332,7 @@ public class ChatEmoteManager {
      * connects to the twitchemotes.com API to get the emote image.
      * The image is cached and converted to a bitmap which is returned.
      */
-    protected Bitmap getEmoteFromId(String emoteId, boolean isBttvEmote) {
+    protected Bitmap getEmoteFromId(String emoteId, boolean isBttvEmote, boolean isFfzEmote) {
         String emoteKey = getEmoteStorageKey(emoteId, settings.getEmoteSize());
         if(cachedEmotes.get(emoteKey) != null) {
             return cachedEmotes.get(emoteKey);
@@ -220,7 +348,7 @@ public class ChatEmoteManager {
             }
         }
 
-        return saveAndGetEmote(getEmoteFromInternet(isBttvEmote, emoteId), emoteId);
+        return saveAndGetEmote(getEmoteFromInternet(isBttvEmote, isFfzEmote, emoteId), emoteId);
     }
 
     /**
@@ -229,9 +357,9 @@ public class ChatEmoteManager {
      * @param emoteId The id of the emote
      * @return The emote. Might be null.S
      */
-    private Bitmap getEmoteFromInternet(boolean isBttvEmote, String emoteId) {
+    private Bitmap getEmoteFromInternet(boolean isBttvEmote, boolean isFfzEmote, String emoteId) {
         int settingsSize = getApiEmoteSizeFromSettingsSize(settings.getEmoteSize());
-        String emoteUrl = getEmoteUrl(isBttvEmote, emoteId, settingsSize);
+        String emoteUrl = getEmoteUrl(isBttvEmote, isFfzEmote, emoteId, settingsSize);
 
         Bitmap emote = Service.getBitmapFromUrl(emoteUrl);
         emote = getDpSizedEmote(emote);
@@ -296,6 +424,14 @@ public class ChatEmoteManager {
         return bttvChannel;
     }
 
+    public List<Emote> getGlobalFfzEmotes() {
+        return ffzGlobal;
+    }
+
+    public List<Emote> getChanncelFfzEmotes() {
+        return ffzChannel;
+    }
+
     public interface EmoteFetchCallback {
         void onEmoteFetched();
     }
@@ -310,14 +446,18 @@ public class ChatEmoteManager {
         return "emote-" + emoteId + "-" + size + "Upgraded";
     }
 
-    public static String getEmoteUrl(boolean isEmoteBttv, String emoteId, int size) {
+    public static String getEmoteUrl(boolean isEmoteBttv, boolean isFfzEmote, String emoteId, int size) {
         return isEmoteBttv
                 ? "https://cdn.betterttv.net/emote/" + emoteId + "/" + size + "x"
+                : isFfzEmote ? "https://cdn.frankerfacez.com/emoticon/" + emoteId + "/" + size
                 : "https://static-cdn.jtvnw.net/emoticons/v1/" + emoteId + "/" + size + ".0";
     }
 
     public static String getEmoteUrl(Emote emote, int size) {
-        return getEmoteUrl(emote.isBetterTTVEmote(), emote.getEmoteId(), size);
+        if(size > emote.getMaxSize()) {
+            size = emote.getMaxSize();
+        }
+        return getEmoteUrl(emote.isBetterTTVEmote(), emote.isFfzEmote(), emote.getEmoteId(), size);
     }
 
     public static Bitmap constructMediumSizedEmote(Bitmap emote, Context context) {

@@ -49,6 +49,11 @@
                 <com.google.android.material.tabs.TabItem
                     android:layout_height="@dimen/chat_emote_tab_icon_size"
                     android:layout_width="@dimen/chat_emote_tab_icon_size"
+                    android:icon="@drawable/ic_ffz_500px"/>
+
+                <com.google.android.material.tabs.TabItem
+                    android:layout_height="@dimen/chat_emote_tab_icon_size"
+                    android:layout_width="@dimen/chat_emote_tab_icon_size"
                     android:icon="@drawable/ic_mood_black_24dp"/>
 
             </com.google.android.material.tabs.TabLayout>

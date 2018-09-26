@@ -18,14 +18,15 @@ import java.util.List;
  */
 public class ConstructChatMessageTask extends AsyncTask<Void, Void, ChatMessage> {
 	private Callback callback;
-	private List<Emote> bttvEmotes, twitchEmotes, subscriberEmotes;
+	private List<Emote> bttvEmotes, ffzEmotes, twitchEmotes, subscriberEmotes;
 	private ChatManager chatManager;
 	private String message;
 	private HashMap<String, Integer> wordOccurenc;
 
-	public ConstructChatMessageTask(Callback callback, List<Emote> bttvEmotes, List<Emote> twitchEmotes, List<Emote> subscriberEmotes, ChatManager chatManager, String message) {
+	public ConstructChatMessageTask(Callback callback, List<Emote> bttvEmotes, List<Emote> ffzEmotes, List<Emote> twitchEmotes, List<Emote> subscriberEmotes, ChatManager chatManager, String message) {
 		this.callback = callback;
 		this.bttvEmotes = bttvEmotes;
+		this.ffzEmotes = ffzEmotes;
 		this.twitchEmotes = twitchEmotes;
 		this.subscriberEmotes = subscriberEmotes;
 		this.chatManager = chatManager;
@@ -81,6 +82,10 @@ public class ConstructChatMessageTask extends AsyncTask<Void, Void, ChatMessage>
 			result.addAll(getEmotesFromList(words, bttvEmotes));
 		}
 
+		if (ffzEmotes != null) {
+			result.addAll(getEmotesFromList(words, ffzEmotes));
+		}
+
 		return result;
 	}
 
@@ -91,18 +96,20 @@ public class ConstructChatMessageTask extends AsyncTask<Void, Void, ChatMessage>
 			if (emotesToCheck != null) {
 				for (Emote emote : emotesToCheck) {
 					if (word.equals(emote.getKeyword())) {
-						Bitmap bitmapEmote = chatManager.getEmoteFromId(emote.getEmoteId(), emote.isBetterTTVEmote());
+						Bitmap bitmapEmote = chatManager.getEmoteFromId(emote.getEmoteId(), emote.isBetterTTVEmote(), emote.isFfzEmote());
 						int fromIndex = wordOccurenc.containsKey(word) ? wordOccurenc.get(word) : 0;
 						int wordIndex = message.indexOf(word, fromIndex);
 
-						wordOccurenc.put(word, wordIndex + word.length() - 1);
+						if(wordIndex != -1) {
+							wordOccurenc.put(word, wordIndex + word.length() - 1);
 
-						result.add(new ChatEmote(
-								new String[] {
-										wordIndex + "-" + (wordIndex + word.length() - 1)
-								},
-								bitmapEmote
-						));
+							result.add(new ChatEmote(
+									new String[]{
+											wordIndex + "-" + (wordIndex + word.length() - 1)
+									},
+									bitmapEmote
+							));
+						}
 					}
 				}
 			}

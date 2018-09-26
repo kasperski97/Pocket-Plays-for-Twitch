@@ -100,6 +100,7 @@ public class ChatManager extends AsyncTask<Void, ChatManager.ProgressUpdate, Voi
 		void onConnectionFailed();
 		void onRoomstateChange(boolean isR9K, boolean isSlow, boolean isSubsOnly);
 		void onBttvEmoteIdFetched(List<Emote> bttvChannel, List<Emote> bttvGlobal);
+		void onFfzEmoteIdFetched(List<Emote> ffzChannel, List<Emote> ffzGlobal);
 	}
 
 	@Override
@@ -116,6 +117,12 @@ public class ChatManager extends AsyncTask<Void, ChatManager.ProgressUpdate, Voi
 			@Override
 			public void onEmoteFetched() {
 				onProgressUpdate(new ChatManager.ProgressUpdate(ChatManager.ProgressUpdate.UpdateType.ON_BTTV_FETCHED));
+			}
+		});
+		mEmoteManager.loadFfzEmotes(new ChatEmoteManager.EmoteFetchCallback() {
+			@Override
+			public void onEmoteFetched() {
+				onProgressUpdate(new ChatManager.ProgressUpdate(ChatManager.ProgressUpdate.UpdateType.ON_FFZ_FETCHED));
 			}
 		});
 
@@ -162,6 +169,11 @@ public class ChatManager extends AsyncTask<Void, ChatManager.ProgressUpdate, Voi
 					case ON_BTTV_FETCHED:
 						callback.onBttvEmoteIdFetched(
 								mEmoteManager.getChanncelBttvEmotes(), mEmoteManager.getGlobalBttvEmotes()
+						);
+						break;
+					case ON_FFZ_FETCHED:
+						callback.onFfzEmoteIdFetched(
+								mEmoteManager.getChanncelFfzEmotes(), mEmoteManager.getGlobalFfzEmotes()
 						);
 						break;
 				}
@@ -324,6 +336,7 @@ public class ChatManager extends AsyncTask<Void, ChatManager.ProgressUpdate, Voi
 			boolean isTurbo = stdVarMatcher.group(5).equals("1");
 			String message = stdVarMatcher.group(6);
 			emotes.addAll(mEmoteManager.findBttvEmotes(message));
+			emotes.addAll(mEmoteManager.findFfzEmotes(message));
 			boolean highlight = false;//Pattern.compile(Pattern.quote(userDisplayName), Pattern.CASE_INSENSITIVE).matcher(message).find();
 
 			ChatMessage chatMessage = new ChatMessage(message, displayName, color, isMod, isTurbo, isSubscriber, emotes, subscriberIcon, highlight);
@@ -388,8 +401,8 @@ public class ChatManager extends AsyncTask<Void, ChatManager.ProgressUpdate, Voi
 	 * Returns a Bitmap of the emote with the specified emote id.
 	 * If the emote has not been cached from an earlier download the method
 	 */
-	public Bitmap getEmoteFromId(String emoteId, boolean isBttvEmote) {
-		return mEmoteManager.getEmoteFromId(emoteId, isBttvEmote);
+	public Bitmap getEmoteFromId(String emoteId, boolean isBttvEmote, boolean isFfsEmote) {
+		return mEmoteManager.getEmoteFromId(emoteId, isBttvEmote, isFfsEmote);
 	}
 
 
@@ -464,7 +477,8 @@ public class ChatManager extends AsyncTask<Void, ChatManager.ProgressUpdate, Voi
 			ON_CONNECTED,
 			ON_CONNECTION_FAILED,
 			ON_ROOMSTATE_CHANGE,
-			ON_BTTV_FETCHED
+			ON_BTTV_FETCHED,
+			ON_FFZ_FETCHED
 		}
 
 		private UpdateType updateType;
